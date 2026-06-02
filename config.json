@@ -1,0 +1,17 @@
+{
+    "files_to_sync": [
+        {
+            "remote": "C:/Users/andre/OneDrive/Desktop/ProgettoAzienda/data/uploads/AZIENDA_001/Fornitori/nome_file_fornitori.csv",
+            "local": "data/uploads/AZIENDA_001/Fornitori/test_fornitori.csv"
+        },
+        {
+            "remote": "C:/Users/andre/OneDrive/Desktop/ProgettoAzienda/data/uploads/AZIENDA_001/Magazzino/nome_file_magazzino.csv",
+            "local": "data/uploads/AZIENDA_001/Magazzino/test_magazzino.csv"
+        }
+    ],
+    "soglia_cac": 50.0,
+    "soglia_ltv": 200.0,
+    "soglia_burn_rate": 10000.0,
+    "soglia_margine": 20.0,
+    "soglia_conversione": 2.0
+}

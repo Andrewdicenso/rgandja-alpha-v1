@@ -1,0 +1,22 @@
+# --- CACHE & TEMPORANEI ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.DS_Store
+
+# --- SICUREZZA (PASSWORD E CHIAVI) ---
+.env
+credentials.json
+token.pickle
+*.key
+
+# --- DATI E LOG ---
+*.log
+data_test/
+# --- CONFIGURAZIONI STREAMLIT ---
+.streamlit/
+secrets.toml
+.venv/
+data/db/*.db
