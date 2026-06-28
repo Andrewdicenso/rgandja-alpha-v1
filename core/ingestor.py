@@ -3,9 +3,8 @@ import os
 from datetime import datetime
 import logging
 from core.secure_vault import SecureVault
-from core.entities import AssetDiMercato, AssetDiValore, AssetDiRelazione, AssetStrategico
+from core.entities.base_asset import AssetDiMercato, AssetDiValore, AssetDiRelazione, AssetStrategico
 from core.database import DatabaseAziendale
-
 logger = logging.getLogger("RGD-Alpha.Ingestor")
 
 class IngestoreDati:
