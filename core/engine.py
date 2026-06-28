@@ -12,7 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from core.secure_vault import SecureVault
 from core.database import DatabaseAziendale
-from core.experimental_modules.engine_settori import analizza_e_configura_motore
+from core.experimental_modules.engine_settori import analizza_e_config
 
 logger = logging.getLogger("RGD-Alpha.Gateway.Enterprise")
 
