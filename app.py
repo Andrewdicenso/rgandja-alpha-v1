@@ -156,7 +156,7 @@ if scelta == "📊 War Room Strategica":
                 df_plot = pd.DataFrame(report_analisi)
                 fig = px.bar(df_plot, x="asset", y="momentum_score", color="stato",
                              color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"})
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
 
                 # --- RAGIONAMENTO IA ---
                 st.subheader("🧠 Ragionamento Strategico")
@@ -221,5 +221,5 @@ if scelta == "🕵️ Centrale Admin" and is_admin:
     try:
         df = db.supervisione_admin_metriche_globali()
         if df is not None and not df.empty:
-            st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df, width=None, hide_index=True)
     except: st.info("In attesa di dati dai nodi periferici.")
