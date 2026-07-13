@@ -71,7 +71,7 @@ class DataGateway:
             nome_log = asset.get('nome', '?') if isinstance(asset, dict) else getattr(asset, 'nome', '?')
             logger.warning(f"Archiviazione fallita per asset {nome_log}: {e}")
 
-    def esegui_scan_strategico(self, lista_asset, contesto):
+    def esegui_scan_strategico(self, lista_asset, contesto, fattore_stress=0, weights=(0.5, 0.5)):
         """
         Analisi Avanzata RGD-ALPHA: Integra il riconoscimento automatico del settore
         con proiezioni predittive a 30 e 90 giorni supportando input ibridi.
