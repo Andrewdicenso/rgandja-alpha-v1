@@ -1,3 +1,20 @@
+SETTORI_CONFIG = {
+    "FINANZA": {
+        "keywords": ["costo", "prezzo", "valore", "asset"],
+        "soglia_critica": 5.0,
+        "label": "Settore Finanziario",
+        "action_plan": "Verificare liquidità e bilanci.",
+        "moltiplicatore_rischio": 1.2
+    },
+    "LOGISTICA": {
+        "keywords": ["scadenza", "lotto", "magazzino"],
+        "soglia_critica": 6.0,
+        "label": "Settore Logistica",
+        "action_plan": "Ottimizzare rotazione stock.",
+        "moltiplicatore_rischio": 1.1
+    }
+}
+
 def analizza_e_configura_motore(lista_colonne):
     """
     Analizza i metadati del file (colonne) eliminando spazi e standardizzando 
