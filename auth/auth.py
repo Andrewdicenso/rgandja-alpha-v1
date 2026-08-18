@@ -1,8 +1,12 @@
-import streamlit as st
-import bcrypt
-import logging
+import os
+from streamlit import secrets
+from supabase import create_client
 
-logger = logging.getLogger("RGD-Alpha.Auth")
+# Legge dai secrets di Streamlit Cloud
+url = secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
+key = secrets.get("SUPABASE_KEY", os.getenv("SUPABASE_KEY"))
+
+supabase = create_client(url, key)
 
 def inizializza_sessione():
     """Inizializza le variabili dello stato della sessione di Streamlit se non esistono."""
