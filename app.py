@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import plotly.express as px
-
+import bcrypt
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -64,8 +64,12 @@ def registra_nuovo_utente(email: str, password: str, conferma: str):
             st.error("Email già registrata.")
             return
         
+        # Genera l'hash sicuro della password
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+        
         ruolo = "admin" if email.lower() == "andrewdicenso@libero.it" else "user"
-        user_id = db.crea_utente(email=email, password=password, ruolo=ruolo)
+        user_id = db.crea_utente(email=email, password_hash=password_hash, ruolo=ruolo)
         if user_id:
             st.success("✅ Registrazione completata. Effettua il login.")
             st.balloons()

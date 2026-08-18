@@ -29,12 +29,12 @@ class DatabaseAziendale:
             raise
 
     # --- GESTIONE UTENTI ---
-    def crea_utente(self, email: str, password: str, ruolo: str = "user", azienda: str = None) -> dict:
+    def crea_utente(self, email: str, password_hash: str, ruolo: str = "user", azienda: str = None) -> dict:
         """Crea un nuovo utente nel database Supabase."""
         try:
             payload = {
                 "email": email.lower(),
-                "password": password,
+                "password_hash": password_hash,
                 "ruolo": ruolo,
                 "azienda": azienda or "AZ-TMP"
             }
