@@ -29,7 +29,7 @@ def login_utente(db, email, password):
             return False
         
         # Verifica della password hashata con bcrypt
-        if bcrypt.checkpw(password.encode(), utente["password_hash"].encode()):
+        if bcrypt.checkpw(password.encode(), utente["password"].encode()):
             st.session_state.autenticato = True
             st.session_state.user_id = utente["id"]
             st.session_state.email = utente["email"]
