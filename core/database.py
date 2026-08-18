@@ -1,179 +1,140 @@
-import sqlite3
-import datetime
 import os
 import logging
 import pandas as pd
-import bcrypt
-from core.secure_vault import SecureVault
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
+# Configurazione Logger
 logger = logging.getLogger("RGD-Alpha.Database")
 
+# Carica le variabili di ambiente dal file .env
+load_dotenv()
+
 class DatabaseAziendale:
-    def __init__(self, db_folder="data/db", db_name="azienda.db"):
+    def __init__(self):
+        """Inizializza la connessione al database Cloud Supabase (PostgreSQL)."""
         try:
-            os.makedirs(db_folder, exist_ok=True)
-            self.db_path = os.path.join(db_folder, db_name)
-            self.vault = SecureVault()
-            self.crea_tabelle()
-            logger.info(f"🛡️ Database RGD-Alpha pronto: {self.db_path}")
+            self.url = os.getenv("SUPABASE_URL")
+            self.key = os.getenv("SUPABASE_KEY")
+            
+            if not self.url or not self.key:
+                raise ValueError("SUPABASE_URL o SUPABASE_KEY mancanti nel file .env!")
+            
+            # Client ufficiale Supabase
+            self.client: Client = create_client(self.url, self.key)
+            logger.info("🛡️ Connessione al Database Supabase RGD-Alpha stabilita con successo!")
+            
         except Exception as e:
-            logger.critical(f"❌ Fallimento database: {e}")
+            logger.critical(f"❌ Fallimento connessione Supabase: {e}")
             raise
 
-    def _get_conn(self):
-        return sqlite3.connect(self.db_path, check_same_thread=False)
-
-    def crea_tabelle(self):
+    # --- GESTIONE UTENTI ---
+    def crea_utente(self, email: str, password_hash: str, ruolo: str = "user", azienda: str = None) -> dict:
+        """Crea un nuovo utente nel database Supabase."""
         try:
-            with self._get_conn() as conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS utenti (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email TEXT UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
-                        ruolo TEXT NOT NULL,
-                        azienda TEXT,
-                        data_creazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS asset_logs (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        company_id TEXT NOT NULL,
-                        nome TEXT NOT NULL,
-                        tipo TEXT,
-                        rischio REAL NOT NULL,
-                        momentum TEXT,
-                        volatilita REAL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS log_caricamenti (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                        user_id INTEGER, 
-                        azienda TEXT, 
-                        contesto TEXT, 
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                        nome_file TEXT
-                    )
-                """)
-                conn.commit()
-        except Exception as e:
-            logger.error(f"❌ Errore creazione schema: {e}")
-
-    def crea_utente(self, email, password, ruolo="user", azienda=None):
-        try:
-            with self._get_conn() as conn:
-                cursor = conn.cursor()
-                email_enc = self.vault.encrypt_data(email)
-                password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-                cursor.execute("INSERT INTO utenti (email, password_hash, ruolo, azienda) VALUES (?, ?, ?, ?)", 
-                             (email_enc, password_hash, ruolo, None))
-                user_id = cursor.lastrowid
-                if azienda is None: azienda = f"AZ-{user_id}"
-                azienda_enc = self.vault.encrypt_data(azienda)
-                cursor.execute("UPDATE utenti SET azienda = ? WHERE id = ?", (azienda_enc, user_id))
-                conn.commit()
-                return user_id
+            payload = {
+                "email": email.lower(),
+                "password_hash": password_hash,
+                "ruolo": ruolo,
+                "azienda": azienda or "AZ-TMP"
+            }
+            res = self.client.table("utenti").insert(payload).execute()
+            
+            if res.data:
+                user_id = res.data[0]["id"]
+                # Se l'azienda non era specificata, aggiorna con AZ-<id>
+                if not azienda:
+                    azienda_code = f"AZ-{user_id}"
+                    self.client.table("utenti").update({"azienda": azienda_code}).eq("id", user_id).execute()
+                    res.data[0]["azienda"] = azienda_code
+                return res.data[0]
+            return None
         except Exception as e:
             logger.error(f"Errore creazione utente: {e}")
             raise
 
-    def get_utente_by_email(self, email):
+    def get_utente_by_email(self, email: str) -> dict:
+        """Recupera un utente in modo istantaneo tramite query diretta su Supabase."""
         try:
-            with self._get_conn() as conn:
-                cursor = conn.execute("SELECT id, email, password_hash, ruolo, azienda FROM utenti")
-                rows = cursor.fetchall()
-            for row in rows:
-                try:
-                    email_dec = self.vault.decrypt_data(row[1])
-                    if isinstance(email_dec, bytes): email_dec = email_dec.decode()
-                    if email_dec.lower() == email.lower():
-                        azienda_dec = self.vault.decrypt_data(row[4]) if row[4] else None
-                        if isinstance(azienda_dec, bytes): azienda_dec = azienda_dec.decode()
-                        return {"id": row[0], "email": email_dec, "password_hash": row[2], "ruolo": row[3], "azienda": azienda_dec}
-                except: continue
+            res = self.client.table("utenti").select("*").eq("email", email.lower()).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
             return None
         except Exception as e:
+            logger.error(f"Errore recupero utente per email {email}: {e}")
             return None
 
-    def get_utente_by_id(self, user_id: int):
+    def get_utente_by_id(self, user_id: int) -> dict:
+        """Recupera un utente tramite il suo ID numerico o UUID."""
         try:
-            with self._get_conn() as conn:
-                cursor = conn.execute("SELECT id, email, password_hash, ruolo, azienda FROM utenti WHERE id = ?", (user_id,))
-                row = cursor.fetchone()
-            if not row: return None
-            email_dec = self.vault.decrypt_data(row[1])
-            if isinstance(email_dec, bytes): email_dec = email_dec.decode()
-            azienda_dec = self.vault.decrypt_data(row[4]) if row[4] else None
-            if isinstance(azienda_dec, bytes): azienda_dec = azienda_dec.decode()
-            return {"id": row[0], "email": email_dec, "password_hash": row[2], "ruolo": row[3], "azienda": azienda_dec}
-        except: return None
+            res = self.client.table("utenti").select("*").eq("id", user_id).execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+            return None
+        except Exception as e:
+            logger.error(f"Errore recupero utente ID {user_id}: {e}")
+            return None
 
-    # --- FUNZIONI ADMIN PER SBLOCCARE IL PANNELLO ---
-    def supervisione_admin_metriche_globali(self):
+    # --- REGISTRAZIONE ATTIVITÀ E ASSET ---
+    def registra_caricamento(self, user_id: int, contesto: str, nome_file: str):
+        """Registra un log nel database quando l'utente carica un file (SAP/Excel)."""
         try:
-            with self._get_conn() as conn:
-                df = pd.read_sql_query("SELECT email, ruolo, azienda, data_creazione FROM utenti", conn)
-                if df.empty: return df
-                df["email"] = df["email"].apply(lambda x: self.vault.decrypt_data(x).decode() if isinstance(self.vault.decrypt_data(x), bytes) else self.vault.decrypt_data(x))
-                df["azienda"] = df["azienda"].apply(lambda x: self.vault.decrypt_data(x).decode() if isinstance(self.vault.decrypt_data(x), bytes) else self.vault.decrypt_data(x))
-                return df
-        except: return pd.DataFrame()
-
-    def recupera_attivita_globale(self, solo_admin=False):
-        try:
-            with self._get_conn() as conn:
-                df = pd.read_sql_query("SELECT * FROM asset_logs", conn)
-                return df
-        except: return pd.DataFrame()
-
-    def recupera_log_caricamenti_admin(self):
-        try:
-            with self._get_conn() as conn:
-                df = pd.read_sql_query("SELECT * FROM log_caricamenti", conn)
-                return df
-        except: return pd.DataFrame()
-
-    def registra_caricamento(self, user_id, contesto, nome_file):
-        try:
-            azienda = self.get_utente_by_id(user_id)["azienda"]
-            with self._get_conn() as conn:
-                conn.execute("INSERT INTO log_caricamenti (user_id, azienda, contesto, nome_file) VALUES (?, ?, ?, ?)", 
-                             (user_id, azienda, contesto, nome_file))
-                conn.commit()
-        except: pass
-
-    def salva_asset(self, user_id, nome_asset, rischio, **kwargs):
-        try:
-            azienda = self.get_utente_by_id(user_id)["azienda"]
-            with self._get_conn() as conn:
-                conn.execute("INSERT INTO asset_logs (user_id, company_id, nome, tipo, rischio, momentum, volatilita) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                             (user_id, azienda, nome_asset, kwargs.get('tipo'), rischio, kwargs.get('momentum'), kwargs.get('volatilita')))
-                conn.commit()
-        except: pass
-
-    
-    def calcola_e_salva_kpi_correnti(self, user_id):
-        """Calcola i KPI reali basandosi sugli asset salvati nel database."""
-        try:
-            with self._get_conn() as conn:
-                # Prendiamo la media del rischio degli ultimi asset caricati
-                cursor = conn.execute("""
-                    SELECT AVG(rischio) FROM asset_logs 
-                    WHERE user_id = ? AND timestamp >= datetime('now', '-1 hour')
-                """, (user_id,))
-                rischio_medio = cursor.fetchone()[0]
+            utente = self.get_utente_by_id(user_id)
+            azienda = utente["azienda"] if utente else "N/A"
             
-            if rischio_medio is None:
-                return {"solidita": 100, "impatto_30gg": "N/D", "rischio_medio": 0}
+            payload = {
+                "user_id": user_id,
+                "azienda": azienda,
+                "contesto": contesto,
+                "nome_file": nome_file
+            }
+            self.client.table("log_caricamenti").insert(payload).execute()
+            logger.info(f"📁 Log caricamento registrato: {nome_file} da user {user_id}")
+        except Exception as e:
+            logger.error(f"Errore registrazione caricamento: {e}")
 
-            # Formula della solidità: più il rischio è alto, più la solidità scende
+    def salva_asset(self, user_id: int, nome_asset: str, rischio: float, **kwargs):
+        """Salva le metriche di un asset nell'archivio storico degli asset."""
+        try:
+            utente = self.get_utente_by_id(user_id)
+            company_id = utente["azienda"] if utente else f"AZ-{user_id}"
+            
+            payload = {
+                "user_id": user_id,
+                "company_id": company_id,
+                "nome": nome_asset,
+                "tipo": kwargs.get('tipo', 'Generico'),
+                "rischio": float(rischio),
+                "momentum": kwargs.get('momentum', 'Stabile'),
+                "volatilita": float(kwargs.get('volatilita', 0.0))
+            }
+            self.client.table("asset_logs").insert(payload).execute()
+            logger.info(f"📊 Asset registrato: {nome_asset} con rischio {rischio}")
+        except Exception as e:
+            logger.error(f"Errore salvataggio asset: {e}")
+
+    # --- CALCOLO KPI REALI ---
+    def calcola_e_salva_kpi_correnti(self, user_id: int) -> dict:
+        """Calcola la solidità e l'impatto aziendale basandosi sugli ultimi asset salvati."""
+        try:
+            # Query diretta a Supabase sugli asset dell'utente
+            res = self.client.table("asset_logs").select("rischio").eq("user_id", user_id).execute()
+            
+            if not res.data or len(res.data) == 0:
+                return {"solidita": 100.0, "impatto_30gg": "STABILE", "rischio_medio": 0.0}
+
+            # Estrazione dei valori di rischio
+            rischi = [row["rischio"] for row in res.data if row.get("rischio") is not None]
+            
+            if not rischi:
+                return {"solidita": 100.0, "impatto_30gg": "STABILE", "rischio_medio": 0.0}
+
+            rischio_medio = sum(rischi) / len(rischi)
+            
+            # Calcolo formula solidità (scala 0 - 100)
             solidita = round(100 - (rischio_medio * 10), 1)
-            solidita = max(min(solidita, 100), 0) # Mantiene tra 0 e 100
-            
+            solidita = max(min(solidita, 100.0), 0.0)
+
             impatto = "CRITICO" if rischio_medio > 7 else "ATTENZIONE" if rischio_medio > 4 else "STABILE"
 
             return {
@@ -181,5 +142,34 @@ class DatabaseAziendale:
                 "impatto_30gg": impatto,
                 "rischio_medio": round(rischio_medio, 2)
             }
-        except:
-            return {"solidita": 0, "impatto_30gg": "ERRORE", "rischio_medio": 0}
+        except Exception as e:
+            logger.error(f"Errore calcolo KPI: {e}")
+            return {"solidita": 0.0, "impatto_30gg": "ERRORE", "rischio_medio": 0.0}
+
+    # --- METODI PER PANNELLO ADMIN (SUPERVISIONE) ---
+    def supervisione_admin_metriche_globali(self) -> pd.DataFrame:
+        """Restituisce il DataFrame degli utenti registrati per la dashboard Admin."""
+        try:
+            res = self.client.table("utenti").select("email, ruolo, azienda, data_creazione").execute()
+            return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Errore supervisione admin utenti: {e}")
+            return pd.DataFrame()
+
+    def recupera_attivita_globale(self) -> pd.DataFrame:
+        """Restituisce il DataFrame di tutti gli asset log per la dashboard Admin."""
+        try:
+            res = self.client.table("asset_logs").select("*").execute()
+            return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Errore recupero attività globale: {e}")
+            return pd.DataFrame()
+
+    def recupera_log_caricamenti_admin(self) -> pd.DataFrame:
+        """Restituisce il DataFrame di tutti i caricamenti effettuati."""
+        try:
+            res = self.client.table("log_caricamenti").select("*").execute()
+            return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Errore log caricamenti admin: {e}")
+            return pd.DataFrame()
