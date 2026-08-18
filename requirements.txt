@@ -1,8 +1,11 @@
 ﻿streamlit
 pandas
 plotly
-bcrypt
+groq
 python-dotenv
-matplotlib
-seaborn
+psycopg2-binary
+bcrypt
 cryptography
+openpyxl
+holidays
+torch
