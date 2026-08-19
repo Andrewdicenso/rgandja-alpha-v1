@@ -14,6 +14,7 @@ from core.database import DatabaseAziendale
 
 # Importiamo la logica centralizzata dal pacchetto auth
 from auth.auth import inizializza_sessione, login_utente, logout_utente
+from auth.auth import richiede_ruolo
 
 # =========================
 #   CONFIGURAZIONE BASE
