@@ -1,72 +1,111 @@
 import os
+import logging
+import bcrypt
 import streamlit as st
 from streamlit import secrets
 from supabase import create_client
+from typing import Optional, Any
 
-# Legge dai secrets di Streamlit Cloud
-url = secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
-key = secrets.get("SUPABASE_KEY", os.getenv("SUPABASE_KEY"))
+# ==========================================
+# 1. CONFIGURAZIONE LOGGING & CLIENT
+# ==========================================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-supabase = create_client(url, key)
+def init_supabase():
+    """Inizializza il client Supabase con gestione errori."""
+    try:
+        url = secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+        key = secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
+        
+        if not url or not key:
+            st.error("Configurazione Supabase mancante nei Secrets o .env")
+            st.stop()
+            
+        return create_client(url, key)
+    except Exception as e:
+        logger.error(f"Errore critico inizializzazione Supabase: {e}")
+        st.stop()
 
+supabase = init_supabase()
+
+# ==========================================
+# 2. GESTIONE SESSIONE
+# ==========================================
 def inizializza_sessione():
-    """Inizializza le variabili dello stato della sessione di Streamlit se non esistono."""
-    if "autenticato" not in st.session_state:
-        st.session_state.autenticato = False
-    if "user_id" not in st.session_state:
-        st.session_state.user_id = None
-    if "email" not in st.session_state:
-        st.session_state.email = None
-    if "ruolo" not in st.session_state:
-        st.session_state.ruolo = None
-    if "azienda" not in st.session_state:
-        st.session_state.azienda = None
+    """Inizializza lo stato della sessione in modo atomico."""
+    defaults = {
+        "autenticato": False,
+        "user_id": None,
+        "email": None,
+        "ruolo": None,
+        "azienda": None
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-def login_utente(db, email, password):
+# ==========================================
+# 3. LOGICA DI AUTENTICAZIONE
+# ==========================================
+def login_utente(db: Any, email: str, password: str) -> bool:
     """
-    Verifica le credenziali dell'utente ed effettua il login.
-    Ritorna True se il login ha successo, altrimenti False.
+    Verifica le credenziali ed effettua il login.
+    Args:
+        db: Istanza del DatabaseAziendale
+        email: Email inserita
+        password: Password in chiaro
     """
     try:
         utente = db.get_utente_by_email(email)
+        
         if not utente:
-            logger.warning(f"Tentativo di login fallito: email non trovata.")
+            logger.warning(f"Login fallito: {email} non trovato.")
             return False
         
-        # Verifica della password hashata con bcrypt
-        if bcrypt.checkpw(password.encode(), utente["password_hash"].encode()):
-            st.session_state.autenticato = True
-            st.session_state.user_id = utente["id"]
-            st.session_state.email = utente["email"]
-            st.session_state.ruolo = utente["ruolo"]
-            st.session_state.azienda = utente["azienda"]
-            logger.info(f"Utente {email} autenticato con successo. Ruolo: {utente['ruolo']}")
+        # Verifica della password hashata
+        password_hash = utente.get("password_hash")
+        if not password_hash:
+            logger.error(f"Errore database: password_hash mancante per {email}")
+            return False
+
+        if bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
+            # Aggiornamento stato sessione
+            st.session_state.update({
+                "autenticato": True,
+                "user_id": utente.get("id"),
+                "email": utente.get("email"),
+                "ruolo": utente.get("ruolo"),
+                "azienda": utente.get("azienda")
+            })
+            logger.info(f"Login successo: {email} (Ruolo: {utente.get('ruolo')})")
             return True
         else:
-            logger.warning(f"Tentativo di login fallito per {email}: password errata.")
+            logger.warning(f"Login fallito: Password errata per {email}")
             return False
+            
     except Exception as e:
-        logger.error(f"Errore durante la fase di login: {e}")
+        logger.error(f"Errore durante il login per {email}: {str(e)}")
+        st.error("Si è verificato un errore tecnico durante l'accesso.")
         return False
 
 def logout_utente():
-    """Svuota la sessione ed effettua il logout dell'utente."""
-    st.session_state.autenticato = False
-    st.session_state.user_id = None
-    st.session_state.email = None
-    st.session_state.ruolo = None
-    st.session_state.azienda = None
+    """Reset completo della sessione."""
+    st.session_state.clear() # Svuota tutto per sicurezza
     st.rerun()
 
-def richiede_ruolo(ruolo_richiesto):
+# ==========================================
+# 4. CONTROLLO ACCESSI (RBAC)
+# ==========================================
+def richiede_ruolo(ruolo_richiesto: str):
     """
-    Verifica se l'utente loggato ha il ruolo richiesto.
-    Se non è autorizzato, interrompe l'esecuzione della pagina di Streamlit.
+    Blocca l'esecuzione se l'utente non ha i permessi.
     """
-    if not st.session_state.autenticato:
-        st.error("Accesso negato. Effettua prima il login.")
+    if not st.session_state.get("autenticato"):
+        st.warning("Eseguire il login per accedere a questa sezione.")
         st.stop()
     
-    if ruolo_richiesto == "admin" and st.session_state.ruolo != "admin":
-        st.error("Area riservata all'amministratore del sistema.")
+    # Se richiesto admin, solo gli admin passano
+    if ruolo_richiesto == "admin" and st.session_state.get("ruolo") != "admin":
+        st.error("🚫 Area Riservata agli Amministratori.")
         st.stop()
