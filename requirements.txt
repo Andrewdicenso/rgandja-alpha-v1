@@ -1,4 +1,4 @@
-﻿streamlit
+﻿streamlit>=1.30.0
 pandas
 plotly
 groq
@@ -8,5 +8,5 @@ bcrypt
 cryptography
 openpyxl
 holidays
-torch
+torch --index-url https://download.pytorch.org/whl/cpu  # Fondamentale per risparmiare spazio su Cloud
 supabase
