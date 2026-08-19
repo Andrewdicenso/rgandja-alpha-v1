@@ -1,13 +1,7 @@
 import os
 import streamlit as st
-import logging  # <--- AGGIUNGI QUESTO
-import bcrypt   # <--- AGGIUNGI QUESTO
 from streamlit import secrets
 from supabase import create_client
-
-# Configura il logger per evitare l'errore "logger is not defined"
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Legge dai secrets di Streamlit Cloud
 url = secrets.get("SUPABASE_URL", os.getenv("SUPABASE_URL"))
