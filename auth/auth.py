@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from streamlit import secrets
 from supabase import create_client
 
