@@ -162,17 +162,52 @@ if scelta == "📊 War Room Strategica":
                 kpi_reali = db.calcola_e_salva_kpi_correnti(user_id)
                 status.update(label="Analisi Strategica Completata!", state="complete")
 
-                # --- 5 KPI ALPHA ---
+                # ==========================================
+                #   --- 5 KPI ALPHA (STRATEGIC VIEW) ---
+                # ==========================================
                 st.header("🛡️ Indicatori Strategici Vitali")
-                cols = st.columns(5)
-                cols[0].metric("Solidità", f"{kpi_reali.get('solidita', 0)}%")
-                cols[1].metric("Rischio Medio", f"{kpi_reali.get('rischio_medio', 0)}/10")
                 
-                avg_m = sum([a.get('momentum_score', 0) for a in report_analisi]) / len(report_analisi) if report_analisi else 0
-                cols[2].metric("Trend Momentum", f"{round(avg_m, 2)}", delta="Accelerazione" if avg_m > 1.2 else "Stabile")
-                cols[3].metric("Efficienza Risorse", "84.2%")
-                res = max(round(100 - (f_stress * 10), 1), 0)
-                cols[4].metric("Resilience", f"{res}%")
+                # Pre-calcolo delle metriche per pulizia del codice
+                avg_m = sum([a.get('trend_90gg', 0) for a in report_analisi]) / len(report_analisi) if report_analisi else 0
+                resilience_score = max(round(100 - (f_stress * 10), 1), 0)
+                
+                # Creazione del layout a 5 colonne
+                cols = st.columns(5)
+                
+                # 1. Solidità Aziendale
+                cols[0].metric(
+                    label="Solidità", 
+                    value=f"{kpi_reali.get('solidita', 0)}%"
+                )
+                
+                # 2. Indice di Rischio Medio
+                cols[1].metric(
+                    label="Rischio Medio", 
+                    value=f"{kpi_reali.get('rischio_medio', 0)}/10"
+                )
+                
+                # 3. Trend Momentum (con logica colore dinamica)
+                # Nota: delta_color="inverse" mette in rosso l'incremento del rischio (Accelerazione)
+                cols[2].metric(
+                    label="Trend Momentum", 
+                    value=f"{round(avg_m, 2)}", 
+                    delta="Accelerazione" if avg_m > 1.2 else "Stabile",
+                    delta_color="inverse" if avg_m > 1.2 else "normal"
+                )
+                
+                # 4. Efficienza Operativa
+                cols[3].metric(
+                    label="Efficienza Risorse", 
+                    value="84.2%"
+                )
+                
+                # 5. Resilience (Impatto Stress Test)
+                cols[4].metric(
+                    label="Resilience", 
+                    value=f"{resilience_score}%",
+                    delta=f"-{(f_stress-1)*100:.0f}% Stress" if f_stress > 1 else None,
+                    delta_color="inverse"
+                )
 
                 # --- GRAFICO MOMENTUM ---
                 st.subheader("📈 Accelerazione del Rischio (Algoritmo EMA)")
@@ -180,7 +215,7 @@ if scelta == "📊 War Room Strategica":
                 fig = px.bar(
                     df_plot, 
                     x="asset", 
-                    y="trend_90gg",  # <--- CAMBIATO DA momentum_score A trend_90gg
+                    y="trend_90gg",
                     color="stato",
                     color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"}
                 )
@@ -198,43 +233,55 @@ if scelta == "📊 War Room Strategica":
                 </div>
                 """, unsafe_allow_html=True)
 
-                # --- DETTAGLIO ASSET ---
+                # --- DETTAGLIO ASSET (VERSIONE CORRETTA E COMPLETA) ---
                 st.subheader("📝 Piano d'Azione per Asset")
                 for asset in report_analisi:
                     r = asset.get('rischio', 0)
+                    # Usiamo i nomi che il motore effettivamente produce:
+                    m = asset.get('trend_90gg', 0)
+                    advice = asset.get('segnalazioni', 'Nessun consiglio disponibile')
+                    
                     box = "kpi-box-critical" if r > 7 else "kpi-box"
                     st.markdown(f"""
                     <div class="{box}">
-                        <b>{asset.get('asset')}</b> | Rischio: {r} | Momentum: {asset.get('momentum_score')}
-                        <br><small>🎯 <b>IA ADVICE:</b> {asset.get('consiglio_strategico')}</small>
+                        <b>{asset.get('asset')}</b> | Rischio: {r} | Trend Momentum: {m}
+                        <br><small>🎯 <b>IA ADVICE:</b> {advice}</small>
                     </div>
                     """, unsafe_allow_html=True)
             else:
                 st.warning("Il file caricato non contiene asset validi da analizzare.")
 
+# ==========================================
+#   NAVIGAZIONE PAGINE (ADMIN & ARCHIVIO)
+# ==========================================
+
 elif scelta == "🕵️ Centrale Admin":
-    st.title("Centrale Admin | Supervisione Globale")
+    st.title("🕵️ Centrale Admin | Supervisione Globale")
     st.write("Area riservata agli amministratori del sistema.")
-    # Inserisci qui le tue metriche globali
+    # Qui potrai aggiungere tabelle globali per vedere tutti gli utenti
 
 elif scelta == "📜 Archivio Storico":
     st.title("📜 Archivio Storico Analisi")
     st.write("Qui puoi consultare la cronologia delle tue attività e dei file elaborati.")
 
-    # Recupera i dati dal database
+    # Recupera i dati dal database tramite l'istanza db
     df_storia = db.recupera_storia_caricamenti(user_id)
 
     if not df_storia.empty:
-        # Pulizia nomi colonne per l'utente
+        # Selezioniamo solo le colonne utili per l'utente
         df_display = df_storia[['data_creazione', 'nome_file', 'contesto']].copy()
+        
+        # Rinominiamo le colonne per renderle leggibili in italiano
         df_display.columns = ['Data e Ora', 'File Elaborato', 'Tipo Analisi']
         
-        # Formattazione data (se è una stringa)
+        # Formattazione della data per una lettura più semplice (Giorno/Mese/Anno Ora:Minuti)
         df_display['Data e Ora'] = pd.to_datetime(df_display['Data e Ora']).dt.strftime('%d/%m/%Y %H:%M')
 
+        # Mostra la tabella a larghezza intera
         st.dataframe(df_display, use_container_width=True)
         
-        st.info(f"Hai effettuato un totale di {len(df_display)} analisi strategiche.")
+        st.info(f"💡 Hai effettuato un totale di {len(df_display)} analisi strategiche.")
     else:
+        # Messaggio se l'archivio è vuoto
         st.info("Non ci sono ancora analisi registrate nel tuo archivio.")
-        st.image("https://cdn-icons-png.flaticon.com/512/4076/4076432.png", width=100) # Icona vuoto
+        st.image("https://cdn-icons-png.flaticon.com/512/4076/4076432.png", width=80)
