@@ -158,9 +158,13 @@ if scelta == "📊 War Room Strategica":
                 db.registra_caricamento(user_id, "UNIVERSAL", uploaded_file.name)
                 
                 # Elaborazione core
-                report_analisi = engine.esegui_scan_strategico(lista_asset, "UNIVERSAL", fattore_stress=f_stress, weights=(w1, w2))
-                kpi_reali = db.calcola_e_salva_kpi_correnti(user_id)
-                status.update(label="Analisi Strategica Completata!", state="complete")
+                report_analisi = engine.esegui_scan_strategico(
+                    lista_asset, 
+                    "UNIVERSAL", 
+                    user_id=user_id, # <--- AGGIUNGI QUESTO!
+                    fattore_stress=f_stress, 
+                    weights=(w1, w2)
+                )
 
                 # ==========================================
                 #   --- 5 KPI ALPHA (STRATEGIC VIEW) ---
@@ -257,8 +261,35 @@ if scelta == "📊 War Room Strategica":
 
 elif scelta == "🕵️ Centrale Admin":
     st.title("🕵️ Centrale Admin | Supervisione Globale")
-    st.write("Area riservata agli amministratori del sistema.")
-    # Qui potrai aggiungere tabelle globali per vedere tutti gli utenti
+    st.write("Benvenuto nel centro di controllo. Qui puoi monitorare tutti gli utenti e le attività del sistema.")
+
+    # 1. METRICHE DI SISTEMA (Recupero dati globali)
+    df_utenti = db.supervisione_admin_metriche_globali()
+    df_attivita = db.recupera_attivita_globale()
+    
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Utenti Totali", len(df_utenti))
+    col_b.metric("Analisi Eseguite", len(df_attivita))
+    col_c.metric("Stato Database", "OPERATIVO", delta="Ottimale")
+
+    st.divider()
+
+    # 2. TABELLA UTENTI REGISTRATI
+    st.subheader("👥 Utenti Registrati")
+    if not df_utenti.empty:
+        df_utenti_display = df_utenti.copy()
+        if 'data_creazione' in df_utenti_display.columns:
+            df_utenti_display['data_creazione'] = pd.to_datetime(df_utenti_display['data_creazione']).dt.strftime('%d/%m/%Y')
+        st.dataframe(df_utenti_display, use_container_width=True)
+    else:
+        st.info("Nessun utente registrato nel sistema.")
+
+    # 3. LOG ATTIVITÀ GLOBALE
+    st.subheader("📊 Attività Recente nel Sistema")
+    if not df_attivita.empty:
+        st.dataframe(df_attivita.head(10), use_container_width=True)
+    else:
+        st.info("Nessuna attività registrata nelle ultime 24 ore.")
 
 elif scelta == "📜 Archivio Storico":
     st.title("📜 Archivio Storico Analisi")
@@ -268,20 +299,11 @@ elif scelta == "📜 Archivio Storico":
     df_storia = db.recupera_storia_caricamenti(user_id)
 
     if not df_storia.empty:
-        # Selezioniamo solo le colonne utili per l'utente
         df_display = df_storia[['data_creazione', 'nome_file', 'contesto']].copy()
-        
-        # Rinominiamo le colonne per renderle leggibili in italiano
         df_display.columns = ['Data e Ora', 'File Elaborato', 'Tipo Analisi']
-        
-        # Formattazione della data per una lettura più semplice (Giorno/Mese/Anno Ora:Minuti)
         df_display['Data e Ora'] = pd.to_datetime(df_display['Data e Ora']).dt.strftime('%d/%m/%Y %H:%M')
-
-        # Mostra la tabella a larghezza intera
         st.dataframe(df_display, use_container_width=True)
-        
         st.info(f"💡 Hai effettuato un totale di {len(df_display)} analisi strategiche.")
     else:
-        # Messaggio se l'archivio è vuoto
         st.info("Non ci sono ancora analisi registrate nel tuo archivio.")
         st.image("https://cdn-icons-png.flaticon.com/512/4076/4076432.png", width=80)
