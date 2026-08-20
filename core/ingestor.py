@@ -5,111 +5,111 @@ import logging
 from core.secure_vault import SecureVault
 from core.entities import AssetDiMercato, AssetDiValore, AssetDiRelazione, AssetStrategico
 from core.database import DatabaseAziendale
+from typing import Any, List, Optional
+
 logger = logging.getLogger("RGD-Alpha.Ingestor")
 
 class IngestoreDati:
     """
-    INGESTORE UNIVERSALE RGD-ALPHA:
-    Sistema adattivo con validazione preventiva per prevenire crash.
+    INGESTORE UNIVERSALE RGD-ALPHA (Enterprise Grade):
+    Sistema adattivo con supporto esteso per tracciati SAP, Oracle e Excel custom.
     """
     def __init__(self, key_path="core/security/vault.key"):
         self.vault = SecureVault(key_path=key_path)
         self.db = DatabaseAziendale()
         
-        # Dizionario esteso per mappare i file reali ai campi del sistema
+        # Mappatura estesa con termini SAP e Internazionali
         self.mappa_sinonimi = {
-            'quantita': ['quantita', 'pezzi', 'qta', 'stock', 'unita', 'Quantita', 'Giacenza'],
-            'valore': ['prezzo', 'importo', 'lordo', 'valore', 'costo', 'ammontare', 'Costo_Unitario', 'prezzo_acquisto'],
-            'rischio': ['rischio', 'impatto', 'criticità', 'priorità', 'Rischio_Logistico', 'Risk_Factor'],
-            'stato': ['stato', 'condizione', 'status', 'pagamento', 'disponibilita', 'Stato_Qualita']
+            'nome': ['nome', 'prodotto', 'descrizione', 'materiale', 'articolo', 'asset', 'material', 'description', 'item', 'sku', 'descrizione_asset'],
+            'quantita': ['quantita', 'pezzi', 'qta', 'stock', 'unita', 'quantity', 'qty', 'giacenza', 'volume'],
+            'valore': ['prezzo', 'importo', 'lordo', 'valore', 'costo', 'ammontare', 'amount', 'price', 'value', 'costo_unitario', 'total_cost'],
+            'rischio': ['rischio', 'impatto', 'criticita', 'priorita', 'risk', 'priority', 'risk_factor', 'score'],
+            'stato': ['stato', 'condizione', 'status', 'pagamento', 'disponibilita', 'availability', 'state']
         }
 
-    def _valida_dati_critici(self, df):
-        """
-        DATA VALIDATOR: Controlla se il file ha i requisiti minimi per non rompere il sistema.
-        Ritorna (True, message) o (False, error_message).
-        """
+    def _trova_colonna_vera(self, df_columns: List[str], categoria: str) -> Optional[str]:
+        """Trova il nome esatto della colonna nel file partendo da un sinonimo."""
+        colonne_pulite = {str(c).strip().lower(): str(c) for c in df_columns}
+        for sinonimo in self.mappa_sinonimi.get(categoria, []):
+            if sinonimo.lower() in colonne_pulite:
+                return colonne_pulite[sinonimo.lower()]
+        return None
+
+    def _valida_dati_critici(self, df: pd.DataFrame):
+        """Validazione preventiva con logica fuzzy."""
         if df.empty:
             return False, "Il file caricato è vuoto."
         
-        # Cerchiamo se esiste almeno una colonna che assomigli a un 'nome' o 'descrizione'
-        nomi_possibili = ['nome', 'descrizione', 'prodotto', 'asset', 'Descrizione_Asset', 'SKU']
-        if not any(col in [c.lower() for c in df.columns] for col in nomi_possibili):
-            return False, "Non trovo una colonna 'Nome' o 'Prodotto'. Controlla le intestazioni del file."
+        # Un file deve avere almeno un 'nome' per essere processato
+        if not self._trova_colonna_vera(df.columns, 'nome'):
+            return False, f"Colonna Identificativa non trovata. Il file deve contenere uno di questi: {self.mappa_sinonimi['nome']}"
 
         return True, "Validazione superata."
 
     def _auto_rilevamento_settore(self, colonne):
-        """Analizza le intestazioni per capire se è Logistica, Finance o Relazioni."""
-        colonne_lower = [str(c).lower() for c in colonne]
-        
-        if any(term in colonne_lower for term in ['fattura', 'iban', 'lordo', 'costo_unitario']):
+        """Rilevamento euristico del settore aziendale."""
+        c_low = [str(c).lower() for c in colonne]
+        if any(t in c_low for t in ['fattura', 'iban', 'lordo', 'iva', 'invoice', 'billing']):
             return "FINANCE", AssetDiValore
-        if any(term in colonne_lower for term in ['bolla', 'ddt', 'magazzino', 'quantita', 'sku', 'ubicazione', 'giacenza']):
+        if any(t in c_low for t in ['bolla', 'ddt', 'magazzino', 'sku', 'giacenza', 'warehouse', 'stock']):
             return "LOGISTICS", AssetDiMercato
-        if any(term in colonne_lower for term in ['cliente', 'fornitore', 'crm', 'fornitore_origine']):
+        if any(t in c_low for t in ['cliente', 'fornitore', 'crm', 'vendor', 'customer', 'partner']):
             return "RELATIONS", AssetDiRelazione
-        
         return "GENERAL", AssetStrategico
-
-    def _estrai_dato(self, row, categoria_chiave, default=0):
-        """Cerca il dato usando i sinonimi definiti sopra."""
-        for sinonimo in self.mappa_sinonimi.get(categoria_chiave, []):
-            val = row.get(sinonimo)
-            if val is not None and not pd.isna(val):
-                return val
-        return default
 
     def elabora_csv(self, file_path, company_id):
         asset_list = [] 
-        
         if not os.path.exists(file_path):
-            logger.error(f"File {file_path} non trovato.")
             return asset_list
 
         try:
-            # Lettura del file
-            df = pd.read_csv(file_path)
-            
-            # --- ESECUZIONE VALIDATORE ---
+            # Caricamento flessibile (gestisce diversi separatori comuni nei CSV SAP)
+            try:
+                df = pd.read_csv(file_path, sep=None, engine='python')
+            except:
+                df = pd.read_csv(file_path)
+
             valido, messaggio = self._valida_dati_critici(df)
             if not valido:
-                logger.warning(f"Validazione fallita per {company_id}: {messaggio}")
-                # Potresti voler lanciare un'eccezione qui per mostrarla in Streamlit
+                logger.warning(f"Validazione fallita: {messaggio}")
                 return asset_list
 
-            # Rilevamento automatico del reparto
-            settore_nome, ClasseAsset = self._auto_rilevamento_settore(df.columns)
-            self.db.registra_caricamento(company_id, f"Ingestione {settore_nome}", os.path.basename(file_path))
+            settore, ClasseAsset = self._auto_rilevamento_settore(df.columns)
+            
+            # Trova le colonne chiave una volta sola
+            col_nome = self._trova_colonna_vera(df.columns, 'nome')
+            col_rischio = self._trova_colonna_vera(df.columns, 'rischio')
+            col_valore = self._trova_colonna_vera(df.columns, 'valore')
 
             for _, row in df.iterrows():
-                dati_riga = row.to_dict()
+                dati = row.to_dict()
                 
-                # Normalizzazione campi fondamentali per evitare crash in engine.py
-                dati_riga['id_asset'] = row.get('ID_Movimento', row.get('id', row.get('ID', 'N/D')))
-                dati_riga['nome'] = row.get('Descrizione_Asset', row.get('nome', row.get('prodotto', 'Asset_Generico')))
+                # Mappatura dei campi per le classi Entity
+                dati['nome'] = row.get(col_nome, "Asset_Sconosciuto")
+                dati['asset'] = dati['nome'] # Alias per compatibilità
                 
-                # Pulizia rischio: assicuriamoci che sia un numero tra 0 e 10
+                # Normalizzazione Rischio (scala 0-10)
                 try:
-                    rischio_raw = self._estrai_dato(row, 'rischio', 5.0)
-                    dati_riga['rischio'] = float(rischio_raw)
+                    val_r = row.get(col_rischio, 5.0)
+                    dati['rischio'] = float(val_r) if pd.notna(val_r) else 5.0
                 except:
-                    dati_riga['rischio'] = 5.0 # Fallback se il dato non è numerico
+                    dati['rischio'] = 5.0
 
-                dati_riga['company_id'] = company_id
-                dati_riga['data'] = row.get('Data_Registrazione', row.get('data', datetime.now().strftime("%Y-%m-%d")))
+                # Dati Extra e Company
+                dati['company_id'] = company_id
+                dati['data'] = datetime.now().strftime("%Y-%m-%d")
 
                 try:
-                    # Inizializzazione della classe
-                    nuovo_asset = ClasseAsset(**dati_riga)
+                    nuovo_asset = ClasseAsset(**dati)
                     if hasattr(nuovo_asset, 'genera_kpi_strategici'):
                         nuovo_asset.genera_kpi_strategici()
-                    
                     asset_list.append(nuovo_asset)
                 except Exception as e:
-                    logger.debug(f"Salto riga per errore formato: {e}")
+                    continue # Salta righe corrotte
+
+            self.db.registra_caricamento(company_id, f"Analisi {settore}", os.path.basename(file_path))
 
         except Exception as e:
-            logger.error(f"Errore critico durante l'elaborazione del file: {e}")
+            logger.error(f"Errore critico Ingestore: {e}")
         
         return asset_list

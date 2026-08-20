@@ -200,7 +200,7 @@ if scelta == "📊 War Room Strategica":
         df_plot = pd.DataFrame(report_analisi)
         fig = px.bar(df_plot, x="asset", y="trend_90gg", color="stato",
                      color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"})
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         st.subheader("🧠 Ragionamento Strategico")
         st.markdown(f"""
@@ -245,14 +245,14 @@ elif scelta == "🕵️ Centrale Admin":
         df_utenti_display = df_utenti.copy()
         if 'data_creazione' in df_utenti_display.columns:
             df_utenti_display['data_creazione'] = pd.to_datetime(df_utenti_display['data_creazione']).dt.strftime('%d/%m/%Y')
-        st.dataframe(df_utenti_display, use_container_width=True)
+        st.dataframe(df_utenti_display, width='stretch')
     else:
         st.info("Nessun utente registrato nel sistema.")
 
     # 3. LOG ATTIVITÀ GLOBALE
     st.subheader("📊 Attività Recente nel Sistema")
     if not df_attivita.empty:
-        st.dataframe(df_attivita.head(10), use_container_width=True)
+        st.dataframe(df_attivita.head(10), width='stretch')
     else:
         st.info("Nessuna attività registrata nelle ultime 24 ore.")
 
@@ -267,7 +267,7 @@ elif scelta == "📜 Archivio Storico":
         df_display = df_storia[['timestamp', 'nome_file', 'contesto']].copy()
         df_display.columns = ['Data e Ora', 'File Elaborato', 'Tipo Analisi']
         df_display['Data e Ora'] = pd.to_datetime(df_display['Data e Ora']).dt.strftime('%d/%m/%Y %H:%M')
-        st.dataframe(df_display, use_container_width=True)
+        st.dataframe(df_display, width='stretch')
         st.info(f"💡 Hai effettuato un totale di {len(df_display)} analisi strategiche.")
     else:
         st.info("Non ci sono ancora analisi registrate nel tuo archivio.")
