@@ -8,5 +8,5 @@ bcrypt
 cryptography
 openpyxl
 holidays
-torch --index-url https://download.pytorch.org/whl/cpu  # Fondamentale per risparmiare spazio su Cloud
+torch
 supabase
