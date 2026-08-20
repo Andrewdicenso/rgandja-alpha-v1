@@ -127,7 +127,9 @@ scelta = st.sidebar.radio("Navigazione", menu)
 if st.sidebar.button("Logout"): 
     logout_utente()
 
-# --- LOGICA PAGINE ---
+# ==========================================
+#   DASHBOARD WAR ROOM (LOGICA OTTIMIZZATA)
+# ==========================================
 if scelta == "📊 War Room Strategica":
     st.title(f"🚀 War Room Strategica: {azienda}")
     
@@ -140,8 +142,13 @@ if scelta == "📊 War Room Strategica":
             f_stress = 1.0 + (ritardo / 50.0)
 
     uploaded_file = st.file_uploader("Carica inventario CSV", type=["csv"])
+    
+    # 1. Inizializzazione variabili di sicurezza
+    report_analisi = []
+    kpi_reali = {"solidita": 0, "rischio_medio": 0, "trend_90gg": 0}
+    resilience_score = max(round(100 - (f_stress * 10), 1), 0)
+
     if uploaded_file:
-        # Crea sottocartella azienda se non esiste
         azienda_safe = str(azienda).replace(" ", "_")
         path = UPLOAD_DIR / azienda_safe / uploaded_file.name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -157,104 +164,62 @@ if scelta == "📊 War Room Strategica":
                 engine = DataGateway()
                 db.registra_caricamento(user_id, "UNIVERSAL", uploaded_file.name)
                 
-                # Elaborazione core
+                # Esecuzione Analisi
                 report_analisi = engine.esegui_scan_strategico(
-                    lista_asset, 
-                    "UNIVERSAL", 
-                    user_id=user_id, # <--- AGGIUNGI QUESTO!
+                    lista_asset=lista_asset, 
+                    contesto="UNIVERSAL", 
+                    user_id=user_id,
                     fattore_stress=f_stress, 
                     weights=(w1, w2)
                 )
-
-                # ==========================================
-                #   --- 5 KPI ALPHA (STRATEGIC VIEW) ---
-                # ==========================================
-                st.header("🛡️ Indicatori Strategici Vitali")
-                
-                # Pre-calcolo delle metriche per pulizia del codice
-                avg_m = sum([a.get('trend_90gg', 0) for a in report_analisi]) / len(report_analisi) if report_analisi else 0
-                resilience_score = max(round(100 - (f_stress * 10), 1), 0)
-                
-                # Creazione del layout a 5 colonne
-                cols = st.columns(5)
-                
-                # 1. Solidità Aziendale
-                cols[0].metric(
-                    label="Solidità", 
-                    value=f"{kpi_reali.get('solidita', 0)}%"
-                )
-                
-                # 2. Indice di Rischio Medio
-                cols[1].metric(
-                    label="Rischio Medio", 
-                    value=f"{kpi_reali.get('rischio_medio', 0)}/10"
-                )
-                
-                # 3. Trend Momentum (con logica colore dinamica)
-                # Nota: delta_color="inverse" mette in rosso l'incremento del rischio (Accelerazione)
-                cols[2].metric(
-                    label="Trend Momentum", 
-                    value=f"{round(avg_m, 2)}", 
-                    delta="Accelerazione" if avg_m > 1.2 else "Stabile",
-                    delta_color="inverse" if avg_m > 1.2 else "normal"
-                )
-                
-                # 4. Efficienza Operativa
-                cols[3].metric(
-                    label="Efficienza Risorse", 
-                    value="84.2%"
-                )
-                
-                # 5. Resilience (Impatto Stress Test)
-                cols[4].metric(
-                    label="Resilience", 
-                    value=f"{resilience_score}%",
-                    delta=f"-{(f_stress-1)*100:.0f}% Stress" if f_stress > 1 else None,
-                    delta_color="inverse"
-                )
-
-                # --- GRAFICO MOMENTUM ---
-                st.subheader("📈 Accelerazione del Rischio (Algoritmo EMA)")
-                df_plot = pd.DataFrame(report_analisi)
-                fig = px.bar(
-                    df_plot, 
-                    x="asset", 
-                    y="trend_90gg",
-                    color="stato",
-                    color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"}
-                )
-
-                # --- RAGIONAMENTO IA ---
-                st.subheader("🧠 Ragionamento Strategico")
-                st.markdown(f"""
-                <div class="ai-reasoning">
-                    <strong>SINTESI DIREZIONALE:</strong><br>
-                    Il sistema rileva un impatto di crisi simulata che riduce la resilienza al {resilience_score}%. 
-                    Il Momentum Score indica che il rischio non è statico ma in espansione temporale.<br><br>
-                    <strong>AZIONE ALPHA:</strong><br>
-                    Si suggerisce di dare priorità agli asset con Momentum > 1.5. Il tempo di giacenza sta erodendo 
-                    il margine operativo più velocemente del previsto. Intervenire sulla supply chain entro 15gg.
-                </div>
-                """, unsafe_allow_html=True)
-
-                # --- DETTAGLIO ASSET (VERSIONE CORRETTA E COMPLETA) ---
-                st.subheader("📝 Piano d'Azione per Asset")
-                for asset in report_analisi:
-                    r = asset.get('rischio', 0)
-                    # Usiamo i nomi che il motore effettivamente produce:
-                    m = asset.get('trend_90gg', 0)
-                    advice = asset.get('segnalazioni', 'Nessun consiglio disponibile')
-                    
-                    box = "kpi-box-critical" if r > 7 else "kpi-box"
-                    st.markdown(f"""
-                    <div class="{box}">
-                        <b>{asset.get('asset')}</b> | Rischio: {r} | Trend Momentum: {m}
-                        <br><small>🎯 <b>IA ADVICE:</b> {advice}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+                kpi_reali = db.calcola_e_salva_kpi_correnti(user_id)
+                status.update(label="✅ Analisi Strategica Completata!", state="complete")
             else:
-                st.warning("Il file caricato non contiene asset validi da analizzare.")
+                status.update(label="❌ Errore: Formato file SAP non riconosciuto", state="error")
+                st.error("Il sistema non ha trovato le colonne 'Nome' o 'Prodotto'.")
 
+    # 2. VISUALIZZAZIONE RISULTATI (Solo se l'analisi ha prodotto dati)
+    if report_analisi:
+        # --- 5 KPI ALPHA ---
+        st.header("🛡️ Indicatori Strategici Vitali")
+        avg_m = sum([a.get('trend_90gg', 0) for a in report_analisi]) / len(report_analisi)
+        
+        cols = st.columns(5)
+        cols[0].metric("Solidità", f"{kpi_reali.get('solidita', 0)}%")
+        cols[1].metric("Rischio Medio", f"{kpi_reali.get('rischio_medio', 0)}/10")
+        cols[2].metric("Trend Momentum", f"{round(avg_m, 2)}", 
+                       delta="Accelerazione" if avg_m > 1.2 else "Stabile",
+                       delta_color="inverse" if avg_m > 1.2 else "normal")
+        cols[3].metric("Efficienza Risorse", "84.2%")
+        cols[4].metric("Resilience", f"{resilience_score}%", 
+                       delta=f"-{(f_stress-1)*100:.0f}% Stress" if f_stress > 1 else None, 
+                       delta_color="inverse")
+
+        # --- GRAFICO & IA ---
+        st.subheader("📈 Accelerazione del Rischio (Algoritmo EMA)")
+        df_plot = pd.DataFrame(report_analisi)
+        fig = px.bar(df_plot, x="asset", y="trend_90gg", color="stato",
+                     color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"})
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("🧠 Ragionamento Strategico")
+        st.markdown(f"""
+            <div class="ai-reasoning">
+                <strong>SINTESI DIREZIONALE:</strong> L'impatto riduce la resilienza al {resilience_score}%.<br>
+                <strong>AZIONE ALPHA:</strong> Priorità asset con Momentum > 1.5.
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.subheader("📝 Piano d'Azione per Asset")
+        for asset in report_analisi:
+            r, m = asset.get('rischio', 0), asset.get('trend_90gg', 0)
+            box = "kpi-box-critical" if r > 7 else "kpi-box"
+            st.markdown(f"""
+                <div class="{box}">
+                    <b>{asset.get('asset')}</b> | Rischio: {r} | Trend: {m}<br>
+                    <small>🎯 <b>IA ADVICE:</b> {asset.get('segnalazioni', 'Analisi in corso...')}</small>
+                </div>
+            """, unsafe_allow_html=True)
 # ==========================================
 #   NAVIGAZIONE PAGINE (ADMIN & ARCHIVIO)
 # ==========================================
