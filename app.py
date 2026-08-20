@@ -225,7 +225,7 @@ if scelta == "📊 War Room Strategica":
                 st.markdown(f"""
                 <div class="ai-reasoning">
                     <strong>SINTESI DIREZIONALE:</strong><br>
-                    Il sistema rileva un impatto di crisi simulata che riduce la resilienza al {res}%. 
+                    Il sistema rileva un impatto di crisi simulata che riduce la resilienza al {resilience_score}%. 
                     Il Momentum Score indica che il rischio non è statico ma in espansione temporale.<br><br>
                     <strong>AZIONE ALPHA:</strong><br>
                     Si suggerisce di dare priorità agli asset con Momentum > 1.5. Il tempo di giacenza sta erodendo 
