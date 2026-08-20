@@ -34,7 +34,7 @@ class DatabaseAziendale:
         try:
             payload = {
                 "email": email.lower(),
-                "password_hash": password_hash,
+                "password": password_hash,  # <--- CAMBIATO DA password_hash A password
                 "ruolo": ruolo,
                 "azienda": azienda or "AZ-TMP"
             }
