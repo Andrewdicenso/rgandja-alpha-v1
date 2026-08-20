@@ -227,3 +227,5 @@ if scelta == "🕵️ Centrale Admin" and is_admin:
         if df is not None and not df.empty:
                 st.dataframe(df, width=None, hide_index=True)
     except: st.info("In attesa di dati dai nodi periferici.")
+
+st.write(st.session_state)
