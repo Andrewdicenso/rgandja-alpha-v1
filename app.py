@@ -299,7 +299,7 @@ elif scelta == "📜 Archivio Storico":
     df_storia = db.recupera_storia_caricamenti(user_id)
 
     if not df_storia.empty:
-        df_display = df_storia[['data_creazione', 'nome_file', 'contesto']].copy()
+        df_display = df_storia[['timestamp', 'nome_file', 'contesto']].copy()
         df_display.columns = ['Data e Ora', 'File Elaborato', 'Tipo Analisi']
         df_display['Data e Ora'] = pd.to_datetime(df_display['Data e Ora']).dt.strftime('%d/%m/%Y %H:%M')
         st.dataframe(df_display, use_container_width=True)

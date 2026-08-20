@@ -71,7 +71,7 @@ class DataGateway:
             nome_log = asset.get('nome', '?') if isinstance(asset, dict) else getattr(asset, 'nome', '?')
             logger.warning(f"Archiviazione fallita per asset {nome_log}: {e}")
 
-    def esegui_scan_strategico(self, lista_asset, contesto, fattore_stress=0, weights=(0.5, 0.5)):
+    def esegui_scan_strategico(self, lista_asset, contesto, user_id=None, fattore_stress=1.0, weights=(0.7, 0.3)):
         """
         Analisi Avanzata RGD-ALPHA: Integra il riconoscimento automatico del settore
         con proiezioni predittive a 30 e 90 giorni supportando input ibridi.
@@ -151,12 +151,12 @@ class DataGateway:
         logger.info(f"Scan {contesto} completato ({config_settore['settore']}). Asset: {len(report)}")
         return report
 
-def salva_report_certificato(azienda, dati_report, vault):
-    """Genera un blob cifrato del report per il download sicuro."""
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        certificato = f"TS: {timestamp} | AZIENDA: {azienda} | ASSETS_RECAP: {len(dati_report)} | STATUS: VERIFIED"
-        return vault.encrypt_data(certificato)
-    except Exception as e:
-        logger.error(f"Errore generazione certificato cifrato: {e}")
-        return None
+    def salva_report_certificato(azienda, dati_report, vault):
+        """Genera un blob cifrato del report per il download sicuro."""
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            certificato = f"TS: {timestamp} | AZIENDA: {azienda} | ASSETS_RECAP: {len(dati_report)} | STATUS: VERIFIED"
+            return vault.encrypt_data(certificato)
+        except Exception as e:
+            logger.error(f"Errore generazione certificato cifrato: {e}")
+            return None

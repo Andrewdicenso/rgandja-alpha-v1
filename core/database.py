@@ -166,20 +166,16 @@ class DatabaseAziendale:
             logger.error(f"Errore recupero attività globale: {e}")
             return pd.DataFrame()
 
-    def recupera_log_caricamenti_admin(self) -> pd.DataFrame:
-        """Restituisce il DataFrame di tutti i caricamenti effettuati."""
-        try:
-            res = self.client.table("log_caricamenti").select("*").execute()
-            return pd.DataFrame(res.data) if res.data else pd.DataFrame()
-        except Exception as e:
-            logger.error(f"Errore log caricamenti admin: {e}")
-            return pd.DataFrame()
-
-    def recupera_storia_caricamenti(self, user_id: int) -> pd.DataFrame:
+    def recupera_storia_caricamenti(self, user_id: Any) -> pd.DataFrame:
         """Recupera la cronologia dei file caricati dall'utente specifico."""
         try:
-            res = self.client.table("log_caricamenti").select("*").eq("user_id", user_id).order("data_creazione", desc=True).execute()
+            # Pulizia ID per Supabase
+            clean_id = str(user_id).replace("AZ-", "")
+            
+            # Usiamo "timestamp" (come visto nello screenshot) per l'ordinamento
+            res = self.client.table("log_caricamenti").select("*").eq("user_id", clean_id).order("timestamp", desc=True).execute()
+            
             return pd.DataFrame(res.data) if res.data else pd.DataFrame()
         except Exception as e:
-            logger.error(f"Errore recupero storia: {e}")
+            logger.error(f"Errore recupero storia per user {user_id}: {e}")
             return pd.DataFrame()
