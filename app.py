@@ -142,6 +142,10 @@ if scelta == "📊 War Room Strategica":
             f_stress = 1.0 + (ritardo / 50.0)
 
     uploaded_file = st.file_uploader("Carica inventario CSV", type=["csv"])
+    if uploaded_file:
+        import pandas as pd
+        test_df = pd.read_csv(uploaded_file)
+        st.write("Colonne rilevate nel file:", test_df.columns.tolist())
     
     # 1. Inizializzazione variabili di sicurezza
     report_analisi = []
