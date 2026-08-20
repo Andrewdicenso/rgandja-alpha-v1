@@ -173,3 +173,12 @@ class DatabaseAziendale:
         except Exception as e:
             logger.error(f"Errore log caricamenti admin: {e}")
             return pd.DataFrame()
+
+    def recupera_storia_caricamenti(self, user_id: int) -> pd.DataFrame:
+        """Recupera la cronologia dei file caricati dall'utente specifico."""
+        try:
+            res = self.client.table("log_caricamenti").select("*").eq("user_id", user_id).order("data_creazione", desc=True).execute()
+            return pd.DataFrame(res.data) if res.data else pd.DataFrame()
+        except Exception as e:
+            logger.error(f"Errore recupero storia: {e}")
+            return pd.DataFrame()

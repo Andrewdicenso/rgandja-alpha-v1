@@ -215,4 +215,22 @@ elif scelta == "🕵️ Centrale Admin":
 
 elif scelta == "📜 Archivio Storico":
     st.title("📜 Archivio Storico Analisi")
-    # Inserisci qui la visualizzazione dei log o vecchi report
+    st.write("Qui puoi consultare la cronologia delle tue attività e dei file elaborati.")
+
+    # Recupera i dati dal database
+    df_storia = db.recupera_storia_caricamenti(user_id)
+
+    if not df_storia.empty:
+        # Pulizia nomi colonne per l'utente
+        df_display = df_storia[['data_creazione', 'nome_file', 'contesto']].copy()
+        df_display.columns = ['Data e Ora', 'File Elaborato', 'Tipo Analisi']
+        
+        # Formattazione data (se è una stringa)
+        df_display['Data e Ora'] = pd.to_datetime(df_display['Data e Ora']).dt.strftime('%d/%m/%Y %H:%M')
+
+        st.dataframe(df_display, use_container_width=True)
+        
+        st.info(f"Hai effettuato un totale di {len(df_display)} analisi strategiche.")
+    else:
+        st.info("Non ci sono ancora analisi registrate nel tuo archivio.")
+        st.image("https://cdn-icons-png.flaticon.com/512/4076/4076432.png", width=100) # Icona vuoto
