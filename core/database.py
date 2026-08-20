@@ -66,7 +66,7 @@ class DatabaseAziendale:
             return None
 
     def get_utente_by_id(self, user_id:any) -> dict:
-        """Recupera un utente tramite il suo ID numerico o UUID."""
+        user_id = str(user_id).replace("AZ-", "")
         try:
             res = self.client.table("utenti").select("*").eq("id", user_id).execute()
             if res.data and len(res.data) > 0:
