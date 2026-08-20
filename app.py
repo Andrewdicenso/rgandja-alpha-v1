@@ -177,9 +177,13 @@ if scelta == "📊 War Room Strategica":
                 # --- GRAFICO MOMENTUM ---
                 st.subheader("📈 Accelerazione del Rischio (Algoritmo EMA)")
                 df_plot = pd.DataFrame(report_analisi)
-                fig = px.bar(df_plot, x="asset", y="momentum_score", color="stato",
-                             color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"})
-                st.plotly_chart(fig, use_container_width=True)
+                fig = px.bar(
+                    df_plot, 
+                    x="asset", 
+                    y="trend_90gg",  # <--- CAMBIATO DA momentum_score A trend_90gg
+                    color="stato",
+                    color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"}
+                )
 
                 # --- RAGIONAMENTO IA ---
                 st.subheader("🧠 Ragionamento Strategico")
