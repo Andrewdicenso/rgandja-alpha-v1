@@ -46,15 +46,11 @@ def inizializza_sessione():
             st.session_state[key] = value
 
 # ==========================================
-# 3. LOGICA DI AUTENTICAZIONE
+# 3. LOGICA DI AUTENTICAZIONE (CORRETTA)
 # ==========================================
 def login_utente(db: Any, email: str, password: str) -> bool:
     """
     Verifica le credenziali ed effettua il login.
-    Args:
-        db: Istanza del DatabaseAziendale
-        email: Email inserita
-        password: Password in chiaro
     """
     try:
         utente = db.get_utente_by_email(email)
@@ -63,13 +59,15 @@ def login_utente(db: Any, email: str, password: str) -> bool:
             logger.warning(f"Login fallito: {email} non trovato.")
             return False
         
-        # Verifica della password hashata
-        password_hash = utente.get("password_hash")
-        if not password_hash:
-            logger.error(f"Errore database: password_hash mancante per {email}")
+        # RECUPERO PASSWORD (CAMBIATO DA password_hash A password)
+        pwd_criptata = utente.get("password") 
+        
+        if not pwd_criptata or pwd_criptata == "EMPTY":
+            logger.error(f"Errore database: password mancante o vuota per {email}")
             return False
 
-        if bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
+        # Verifica con bcrypt
+        if bcrypt.checkpw(password.encode('utf-8'), pwd_criptata.encode('utf-8')):
             # Aggiornamento stato sessione
             st.session_state.update({
                 "autenticato": True,

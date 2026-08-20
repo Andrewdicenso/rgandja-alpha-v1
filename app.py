@@ -79,22 +79,52 @@ def registra_nuovo_utente(email: str, password: str, conferma: str):
 # =========================
 #   SCHERMATA AUTH
 # =========================
-if not st.session_state.autenticato:
-    tab_login, tab_register = st.tabs(["🔐 Login", "🆕 Registrazione"])
-    with tab_login:
-        st.title("🔐 Accesso Utente")
-        e_login = st.text_input("Email", key="l_email").strip()
-        p_login = st.text_input("Password", type="password", key="l_pwd").strip()
-        if st.button("Accedi"):
-            if login_utente(db, e_login, p_login): st.rerun()
-            else: st.error("Credenziali errate.")
-    with tab_register:
-        st.title("🆕 Crea account Beta")
-        e_reg = st.text_input("Email", key="r_email").strip()
-        p_reg = st.text_input("Password", type="password", key="r_pwd").strip()
-        c_reg = st.text_input("Conferma", type="password", key="r_conf").strip()
-        if st.button("Registrati"): registra_nuovo_utente(e_reg, p_reg, c_reg)
-    st.stop()
+# --- LOGICA DI AUTENTICAZIONE IN APP.PY ---
+
+def registra_nuovo_utente(email, pwd, conf):
+    if pwd != conf:
+        st.error("Le password non coincidono!")
+        return
+    if len(pwd) < 6:
+        st.error("La password deve essere di almeno 6 caratteri.")
+        return
+    
+    # Cripta la password
+    pwd_hash = bcrypt.hashpw(pwd.encode(), bcrypt.gensalt()).decode()
+    
+    try:
+        # Tenta la creazione nel DB
+        nuovo_utente = db.crea_utente(email, pwd_hash)
+        if nuovo_utente:
+            st.success("Registrazione completata! Ora puoi accedere.")
+        else:
+            st.error("Errore durante la registrazione. L'utente potrebbe già esistere.")
+    except Exception as e:
+        st.error(f"Errore tecnico: {e}")
+
+    # Il blocco che mi hai chiesto:
+    if not st.session_state.autenticato:
+        tab_login, tab_register = st.tabs(["🔐 Login", "🆕 Registrazione"])
+        
+        with tab_login:
+            st.title("🔐 Accesso Utente")
+            e_login = st.text_input("Email", key="l_email").strip()
+            p_login = st.text_input("Password", type="password", key="l_pwd").strip()
+            if st.button("Accedi"):
+                if login_utente(db, e_login, p_login): 
+                    st.rerun()
+                else: 
+                    st.error("Credenziali errate.")
+                    
+        with tab_register:
+            st.title("🆕 Crea account Beta")
+            e_reg = st.text_input("Email", key="r_email").strip()
+            p_reg = st.text_input("Password", type="password", key="r_pwd").strip()
+            c_reg = st.text_input("Conferma", type="password", key="r_conf").strip()
+            if st.button("Registrati"): 
+                registra_nuovo_utente(e_reg, p_reg, c_reg)
+                
+        st.stop()
 
 # =========================
 #   NAVIGAZIONE SIDEBAR
