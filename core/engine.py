@@ -151,12 +151,12 @@ class DataGateway:
         logger.info(f"Scan {contesto} completato ({config_settore['settore']}). Asset: {len(report)}")
         return report
 
-    def salva_report_certificato(azienda, dati_report, vault):
-        """Genera un blob cifrato del report per il download sicuro."""
-        try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            certificato = f"TS: {timestamp} | AZIENDA: {azienda} | ASSETS_RECAP: {len(dati_report)} | STATUS: VERIFIED"
-            return vault.encrypt_data(certificato)
-        except Exception as e:
-            logger.error(f"Errore generazione certificato cifrato: {e}")
-            return None
+def salva_report_certificato(azienda, dati_report, vault):
+    """Genera un blob cifrato del report per il download sicuro."""
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        certificato = f"TS: {timestamp} | AZIENDA: {azienda} | ASSETS_RECAP: {len(dati_report)} | STATUS: VERIFIED"
+        return vault.encrypt_data(certificato)
+    except Exception as e:
+        logger.error(f"Errore generazione certificato cifrato: {e}")
+        return None
