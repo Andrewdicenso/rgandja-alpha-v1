@@ -1,6 +1,7 @@
 import os
 import logging
 import pandas as pd
+from typing import Optional, Any
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -64,7 +65,7 @@ class DatabaseAziendale:
             logger.error(f"Errore recupero utente per email {email}: {e}")
             return None
 
-    def get_utente_by_id(self, user_id: int) -> dict:
+    def get_utente_by_id(self, user_id:any) -> dict:
         """Recupera un utente tramite il suo ID numerico o UUID."""
         try:
             res = self.client.table("utenti").select("*").eq("id", user_id).execute()
