@@ -1,8 +1,8 @@
+gitignore
 # --- CACHE & TEMPORANEI ---
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 .pytest_cache/
 .DS_Store
 
@@ -11,12 +11,17 @@ __pycache__/
 credentials.json
 token.pickle
 *.key
+.streamlit/secrets.toml
+
+# --- CONFIGURAZIONI (DA CARICARE) ---
+!.streamlit/config.toml
+
+# --- AMBIENTI VIRTUALI ---
+venv/
+env/
 
 # --- DATI E LOG ---
 *.log
 data_test/
-# --- CONFIGURAZIONI STREAMLIT ---
-.streamlit/
-secrets.toml
-.venv/
 data/db/*.db
+# data/  <-- Decommenta questa riga se vuoi proteggere anche i file Excel/CSV caricati
