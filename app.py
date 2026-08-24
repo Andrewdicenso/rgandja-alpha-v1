@@ -8,6 +8,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 # --- MODULI CORE & AUTH ---
+from core.ai_bridge import genera_executive_report_ia
 from core.ingestor import IngestoreDati
 from core.engine import DataGateway, salva_report_certificato
 from core.database import DatabaseAziendale
@@ -61,14 +62,14 @@ def registra_nuovo_utente(email, pwd, conf):
     if len(pwd) < 6:
         st.error("La password deve essere di almeno 6 caratteri.")
         return
-    
+
     # Hashing sicuro della password (bcrypt)
     pwd_hash = bcrypt.hashpw(pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
+
     try:
         # Determina il ruolo in base all'email admin
         ruolo = "admin" if email.lower() == "andrewdicenso@libero.it" else "user"
-        
+
         # Tenta la creazione nel DB
         nuovo_utente = db.crea_utente(email=email, password_hash=pwd_hash, ruolo=ruolo)
         if nuovo_utente:
@@ -84,25 +85,25 @@ def registra_nuovo_utente(email, pwd, conf):
 # ==========================================
 if not st.session_state.autenticato:
     tab_login, tab_register = st.tabs(["🔐 Login", "🆕 Registrazione"])
-    
+
     with tab_login:
         st.title("🔐 Accesso Utente")
         e_login = st.text_input("Email", key="l_email").strip()
         p_login = st.text_input("Password", type="password", key="l_pwd").strip()
         if st.button("Accedi"):
-            if login_utente(db, e_login, p_login): 
+            if login_utente(db, e_login, p_login):
                 st.rerun()
-            else: 
+            else:
                 st.error("Credenziali errate.")
-                
+
     with tab_register:
         st.title("🆕 Crea account Beta")
         e_reg = st.text_input("Email", key="r_email").strip()
         p_reg = st.text_input("Password", type="password", key="r_pwd").strip()
         c_reg = st.text_input("Conferma", type="password", key="r_conf").strip()
-        if st.button("Registrati"): 
+        if st.button("Registrati"):
             registra_nuovo_utente(e_reg, p_reg, c_reg)
-            
+
     st.stop() # BLOCCA l'esecuzione del resto dell'app per i non loggati
 
 # ==========================================
@@ -119,12 +120,12 @@ st.sidebar.write(f"Operatore: **{st.session_state.email}**")
 st.sidebar.write(f"Azienda: **{azienda}**")
 
 menu = ["📊 War Room Strategica", "📜 Archivio Storico"]
-if is_admin: 
+if is_admin:
     menu.insert(0, "🕵️ Centrale Admin")
 
 scelta = st.sidebar.radio("Navigazione", menu)
 
-if st.sidebar.button("Logout"): 
+if st.sidebar.button("Logout"):
     logout_utente()
 
 # ==========================================
@@ -132,7 +133,7 @@ if st.sidebar.button("Logout"):
 # ==========================================
 if scelta == "📊 War Room Strategica":
     st.title(f"🚀 War Room Strategica: {azienda}")
-    
+
     with st.sidebar:
         with st.expander("⚙️ CALIBRAZIONE EMA", expanded=True):
             w1 = st.slider("Peso Presente (W1)", 0.1, 1.0, 0.7)
@@ -142,7 +143,7 @@ if scelta == "📊 War Room Strategica":
             f_stress = 1.0 + (ritardo / 50.0)
 
     uploaded_file = st.file_uploader("Carica inventario CSV", type=["csv"])
-    
+
     # 1. Inizializzazione variabili di sicurezza
     report_analisi = []
     kpi_reali = {"solidita": 0, "rischio_medio": 0, "trend_90gg": 0}
@@ -152,24 +153,24 @@ if scelta == "📊 War Room Strategica":
         azienda_safe = str(azienda).replace(" ", "_")
         path = UPLOAD_DIR / azienda_safe / uploaded_file.name
         path.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(path, "wb") as f: 
+
+        with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
         with st.status("Protocollo RGD-Alpha in corso...") as status:
             ingestor = IngestoreDati()
             lista_asset = ingestor.elabora_csv(str(path), azienda)
-            
+
             if lista_asset:
                 engine = DataGateway()
                 db.registra_caricamento(user_id, "UNIVERSAL", uploaded_file.name)
-                
+
                 # Esecuzione Analisi
                 report_analisi = engine.esegui_scan_strategico(
-                    lista_asset=lista_asset, 
-                    contesto="UNIVERSAL", 
+                    lista_asset=lista_asset,
+                    contesto="UNIVERSAL",
                     user_id=user_id,
-                    fattore_stress=f_stress, 
+                    fattore_stress=f_stress,
                     weights=(w1, w2)
                 )
                 kpi_reali = db.calcola_e_salva_kpi_correnti(user_id)
@@ -178,35 +179,39 @@ if scelta == "📊 War Room Strategica":
                 status.update(label="❌ Errore: Formato file SAP non riconosciuto", state="error")
                 st.error("Il sistema non ha trovato le colonne 'Nome' o 'Prodotto'.")
 
-    # 2. VISUALIZZAZIONE RISULTATI (Solo se l'analisi ha prodotto dati)
+# --- VISUALIZZAZIONE RISULTATI (Solo se l'analisi ha prodotto dati) ---
     if report_analisi:
         # --- 5 KPI ALPHA ---
         st.header("🛡️ Indicatori Strategici Vitali")
         avg_m = sum([a.get('trend_90gg', 0) for a in report_analisi]) / len(report_analisi)
-        
+
         cols = st.columns(5)
         cols[0].metric("Solidità", f"{kpi_reali.get('solidita', 0)}%")
         cols[1].metric("Rischio Medio", f"{kpi_reali.get('rischio_medio', 0)}/10")
-        cols[2].metric("Trend Momentum", f"{round(avg_m, 2)}", 
-                       delta="Accelerazione" if avg_m > 1.2 else "Stabile",
-                       delta_color="inverse" if avg_m > 1.2 else "normal")
+        cols[2].metric("Trend Momentum", f"{round(avg_m, 2)}",
+                         delta="Accelerazione" if avg_m > 1.2 else "Stabile",
+                         delta_color="inverse" if avg_m > 1.2 else "normal")
         cols[3].metric("Efficienza Risorse", "84.2%")
-        cols[4].metric("Resilience", f"{resilience_score}%", 
-                       delta=f"-{(f_stress-1)*100:.0f}% Stress" if f_stress > 1 else None, 
-                       delta_color="inverse")
+        cols[4].metric("Resilience", f"{resilience_score}%",
+                         delta=f"-{(f_stress-1)*100:.0f}% Stress" if f_stress > 1 else None,
+                         delta_color="inverse")
 
         # --- GRAFICO & IA ---
         st.subheader("📈 Accelerazione del Rischio (Algoritmo EMA)")
         df_plot = pd.DataFrame(report_analisi)
         fig = px.bar(df_plot, x="asset", y="trend_90gg", color="stato",
                      color_discrete_map={"CRITICO": "#ff5f56", "ATTENZIONE": "#ffbd2e", "OTTIMALE": "#27c93f"})
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, use_container_width=True)
 
-        st.subheader("🧠 Ragionamento Strategico")
+        st.subheader("🧠 Ragionamento Strategico & Executive Summary")
+
+        # Integrazione della chiamata a Gemini con uno spinner dedicato
+        with st.spinner("🤖 Il CSO Virtuale sta elaborando il report strategico..."):
+            report_ia_markdown = genera_executive_report_ia(report_analisi, kpi_reali, resilience_score)
+
         st.markdown(f"""
             <div class="ai-reasoning">
-                <strong>SINTESI DIREZIONALE:</strong> L'impatto riduce la resilienza al {resilience_score}%.<br>
-                <strong>AZIONE ALPHA:</strong> Priorità asset con Momentum > 1.5.
+                {report_ia_markdown}
             </div>
         """, unsafe_allow_html=True)
 
@@ -231,7 +236,7 @@ elif scelta == "🕵️ Centrale Admin":
     # 1. METRICHE DI SISTEMA (Recupero dati globali)
     df_utenti = db.supervisione_admin_metriche_globali()
     df_attivita = db.recupera_attivita_globale()
-    
+
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("Utenti Totali", len(df_utenti))
     col_b.metric("Analisi Eseguite", len(df_attivita))
