@@ -39,9 +39,9 @@ def genera_executive_report_ia(report_analisi: list, kpi_reali: dict, resilience
         3. Direttive prescrittive immediate per il board aziendale.
         """
 
-        # Chiamata al modello con l'identificativo stabile supportato
+        # Utilizziamo il modello corrente supportato per i nuovi rilasci
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction="Sei un CSO virtuale rigoroso, professionale ed esperto di risk management industriale.",
