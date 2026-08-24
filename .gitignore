@@ -1,4 +1,3 @@
-gitignore
 # --- CACHE & TEMPORANEI ---
 __pycache__/
 *.py[cod]
@@ -12,16 +11,18 @@ credentials.json
 token.pickle
 *.key
 .streamlit/secrets.toml
+core/security/vault.key
 
-# --- CONFIGURAZIONI (DA CARICARE) ---
+# --- CONFIGURAZIONI ---
 !.streamlit/config.toml
 
 # --- AMBIENTI VIRTUALI ---
 venv/
 env/
+.venv/
 
 # --- DATI E LOG ---
 *.log
 data_test/
 data/db/*.db
-# data/  <-- Decommenta questa riga se vuoi proteggere anche i file Excel/CSV caricati
+data/uploads/
