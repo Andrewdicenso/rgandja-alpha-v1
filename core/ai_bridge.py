@@ -39,7 +39,7 @@ def genera_executive_report_ia(report_analisi: list, kpi_reali: dict, resilience
         3. Direttive prescrittive immediate per il board aziendale.
         """
 
-        # Chiamata al modello Gemini aggiornato
+        # Chiamata al modello Gemini aggiornato con l'endpoint corretto
         response = client.models.generate_content(
             model='gemini-3.6-flash',
             contents=prompt,
