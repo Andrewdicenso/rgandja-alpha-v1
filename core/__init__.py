@@ -8,6 +8,7 @@ key = secrets.get("SUPABASE_KEY", os.getenv("SUPABASE_KEY"))
 
 supabase = create_client(url, key)
 
+
 def inizializza_sessione():
     """Inizializza le variabili dello stato della sessione di Streamlit se non esistono."""
     if "autenticato" not in st.session_state:
@@ -21,6 +22,7 @@ def inizializza_sessione():
     if "azienda" not in st.session_state:
         st.session_state.azienda = None
 
+
 def login_utente(db, email, password):
     """
     Verifica le credenziali dell'utente ed effettua il login.
@@ -31,7 +33,7 @@ def login_utente(db, email, password):
         if not utente:
             logger.warning(f"Tentativo di login fallito: email non trovata.")
             return False
-        
+
         # Verifica della password hashata con bcrypt
         if bcrypt.checkpw(password.encode(), utente["password_hash"].encode()):
             st.session_state.autenticato = True
@@ -39,7 +41,9 @@ def login_utente(db, email, password):
             st.session_state.email = utente["email"]
             st.session_state.ruolo = utente["ruolo"]
             st.session_state.azienda = utente["azienda"]
-            logger.info(f"Utente {email} autenticato con successo. Ruolo: {utente['ruolo']}")
+            logger.info(
+                f"Utente {email} autenticato con successo. Ruolo: {utente['ruolo']}"
+            )
             return True
         else:
             logger.warning(f"Tentativo di login fallito per {email}: password errata.")
@@ -47,6 +51,7 @@ def login_utente(db, email, password):
     except Exception as e:
         logger.error(f"Errore durante la fase di login: {e}")
         return False
+
 
 def logout_utente():
     """Svuota la sessione ed effettua il logout dell'utente."""
@@ -57,6 +62,7 @@ def logout_utente():
     st.session_state.azienda = None
     st.rerun()
 
+
 def richiede_ruolo(ruolo_richiesto):
     """
     Verifica se l'utente loggato ha il ruolo richiesto.
@@ -65,7 +71,7 @@ def richiede_ruolo(ruolo_richiesto):
     if not st.session_state.autenticato:
         st.error("Accesso negato. Effettua prima il login.")
         st.stop()
-    
+
     if ruolo_richiesto == "admin" and st.session_state.ruolo != "admin":
         st.error("Area riservata all'amministratore del sistema.")
         st.stop()
